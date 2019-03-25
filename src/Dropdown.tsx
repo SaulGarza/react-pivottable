@@ -11,16 +11,17 @@ interface IProps {
 export default class Dropdown extends React.PureComponent<IProps,{}> {
   public render() {
     return (
-      <div className="pvtDropdown" style={{zIndex: this.props.zIndex}}>
+      <div className="pvtDropdown" style={{ zIndex: this.props.zIndex }}>
         <div
-          onClick={e => {
+          onClick={(e) => {
             e.stopPropagation();
             this.props.toggle();
           }}
-          className={
-            'pvtDropdownValue pvtDropdownCurrent ' +
-            (this.props.open ? 'pvtDropdownCurrentOpen' : '')
-          }
+          className={`
+            pvtDropdownValue
+            pvtDropdownCurrent
+            ${this.props.open ? 'pvtDropdownCurrentOpen' : ''}
+          `}
           role="button"
         >
           <div className="pvtDropdownIcon">{this.props.open ? '×' : '▾'}</div>
@@ -33,7 +34,7 @@ export default class Dropdown extends React.PureComponent<IProps,{}> {
               <div
                 key={r}
                 role="button"
-                onClick={e => {
+                onClick={(e) => {
                   e.stopPropagation();
                   if (this.props.current === r) {
                     this.props.toggle();
@@ -41,10 +42,10 @@ export default class Dropdown extends React.PureComponent<IProps,{}> {
                     this.props.setValue(r);
                   }
                 }}
-                className={
-                  'pvtDropdownValue ' +
-                  (r === this.props.current ? 'pvtDropdownActiveValue' : '')
-                }
+                className={`
+                  pvtDropdownValue
+                  ${r === this.props.current ? 'pvtDropdownActiveValue' : ''}
+                `}
               >
                 {r}
               </div>

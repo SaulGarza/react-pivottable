@@ -1,28 +1,36 @@
-import * as React from 'react'
 import update from 'immutability-helper'
-import {PivotData, sortAs, getSort, ObjectOfNumbers} from './Utilities'
-import { PivotTable, IPivotTableProps } from './PivotTable'
+import * as React from 'react'
 import Sortable from 'react-sortablejs'
-import Dropdown from './Dropdown'
-import DraggableAttribute from './DraggableAttribute'
 
-interface IProps {
-  onChange: (Function) => any
+import DraggableAttribute from './DraggableAttribute'
+import Dropdown from './Dropdown'
+import {
+  IPivotTableProps,
+  PivotTable,
+} from './PivotTable'
+import {
+  getSort,
+  ObjectOfNumbers,
+  PivotData,
+  sortAs,
+} from './Utilities'
+
+interface IPivotTableUIProps extends IPivotTableProps {
+  onChange: (f: any) => any
   hiddenAttributes?: string[]
   hiddenFromAggregators?: string[]
   hiddenFromDragDrop?: string[]
   unusedOrientationCutoff?: number
   menuLimit?: number
 }
-interface IPivotTableUIProps extends IProps, IPivotTableProps {}
 interface IState {
   unusedOrder: any[]
   zIndices: ObjectOfNumbers
   maxZIndex: number
   openDropdown: boolean | string
 }
-class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
-  static props: IPivotTableUIProps = {
+export default class PivotTableInterface extends React.PureComponent<IPivotTableUIProps, IState> {
+  public static props: IPivotTableUIProps = {
     ...PivotTable.defaultProps,
     onChange: () => undefined,
     hiddenAttributes: [],
@@ -49,7 +57,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     this.materializeInput(nextProps.data)
   }
 
-  private materializeInput(nextData) {
+  private materializeInput(nextData: any) {
     if (this.data === nextData) {
       return
     }
@@ -57,7 +65,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     const attrValues = {}
     const materializedInput: any[] = []
     let recordsProcessed = 0
-    new PivotData().forEachRecord(this.data, this.props.derivedAttributes, function(record) {
+    new PivotData().forEachRecord(this.data, this.props.derivedAttributes, (record) => {
       materializedInput.push(record)
       for (const attr of Object.keys(record)) {
         if (!(attr in attrValues)) {
@@ -67,7 +75,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
           }
         }
       }
-      for (const attr in attrValues) {
+      for (const attr of Object.keys(attrValues)) {
         const value = attr in record ? record[attr] : 'null'
         if (!(value in attrValues[attr])) {
           attrValues[attr][value] = 0
@@ -81,35 +89,41 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     this.attrValues = attrValues
   }
 
-  sendPropUpdate(command) {
+  public sendPropUpdate(command) {
     this.props.onChange(update(this.props, command))
   }
 
-  propUpdater(key) {
-    return value => this.sendPropUpdate({[key]: {$set: value}})
+  public propUpdater(key) {
+    return value => this.sendPropUpdate({ [key]: { $set: value } })
   }
 
-  setValuesInFilter(attribute, values) {
+  public setValuesInFilter(attribute, values) {
     this.sendPropUpdate({
       valueFilter: {
         [attribute]: {
-          $set: values.reduce((r, v) => {
-            r[v] = true
-            return r
-          }, {}),
+          $set: values.reduce(
+            (r, v) => {
+              r[v] = true
+              return r
+            },
+            {},
+          ),
         },
       },
     })
   }
 
-  addValuesToFilter(attribute, values) {
+  public addValuesToFilter(attribute, values) {
     if (attribute in this.props.valueFilter!) {
       this.sendPropUpdate({
         valueFilter: {
-          [attribute]: values.reduce((r, v) => {
-            r[v] = {$set: true}
-            return r
-          }, {}),
+          [attribute]: values.reduce(
+            (r, v) => {
+              r[v] = { $set: true }
+              return r
+            },
+            {},
+          ),
         },
       })
     } else {
@@ -117,26 +131,26 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     }
   }
 
-  removeValuesFromFilter(attribute, values) {
+  public removeValuesFromFilter(attribute, values) {
     this.sendPropUpdate({
-      valueFilter: {[attribute]: {$unset: values}},
+      valueFilter: { [attribute]: { $unset: values } },
     })
   }
 
-  moveFilterBoxToTop(attribute) {
+  public moveFilterBoxToTop(attribute) {
     this.setState(
       update(this.state, {
-        maxZIndex: {$set: this.state.maxZIndex + 1},
-        zIndices: {[attribute]: {$set: this.state.maxZIndex + 1}},
-      })
+        maxZIndex: { $set: this.state.maxZIndex + 1 },
+        zIndices: { [attribute]: { $set: this.state.maxZIndex + 1 } },
+      }),
     )
   }
 
-  isOpen(dropdown) {
+  public isOpen(dropdown) {
     return this.state.openDropdown === dropdown
   }
 
-  makeDnDCell(items, onChange, classes) {
+  public makeDnDCell(items, onChange, classes) {
     return (
       <Sortable
         options={{
@@ -157,10 +171,11 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
             valueFilter={this.props.valueFilter![x] || {}}
             sorter={getSort(this.props.sorters, x)}
             menuLimit={this.props.menuLimit}
-            setValuesInFilter={this.setValuesInFilter.bind(this)}
-            addValuesToFilter={this.addValuesToFilter.bind(this)}
-            moveFilterBoxToTop={this.moveFilterBoxToTop.bind(this)}
-            removeValuesFromFilter={this.removeValuesFromFilter.bind(this)}
+            setValuesInFilter={(attr: any, values: any) => this.setValuesInFilter(attr, values)}
+            addValuesToFilter={(attr: any, values: any) => this.addValuesToFilter(attr, values)}
+            moveFilterBoxToTop={(attr: any) => this.moveFilterBoxToTop(attr)}
+            removeValuesFromFilter={(attr: any, values: any) =>
+              this.removeValuesFromFilter(attr, values)}
             zIndex={this.state.zIndices[x] || this.state.maxZIndex}
           />
         ))}
@@ -168,7 +183,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     )
   }
 
-  render() {
+  public render() {
     const numValsAllowed =
       this.props.aggregators![this.props.aggregatorName!]([])().numInputs || 0
 
@@ -208,7 +223,11 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
         colSymbol: '→',
         next: 'value_z_to_a',
       },
-      value_z_to_a: {rowSymbol: '↑', colSymbol: '←', next: 'key_a_to_z'},
+      value_z_to_a: {
+        rowSymbol: '↑',
+        colSymbol: '←',
+        next: 'key_a_to_z',
+      },
     }
 
     const aggregatorCell = (
@@ -244,31 +263,34 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
           {sortIcons[this.props.colOrder!].colSymbol}
         </a>
         {numValsAllowed > 0 && <br />}
-        { // Initialize new Array of length[numValsAllowed] with undefined, then immediately map data to it
+        { // Initialize new Array of length[numValsAllowed] with undefined,
+          // then immediately map data to it
+          // tslint:disable-next-line:prefer-array-literal
           new Array(numValsAllowed).fill(undefined).map((n, i) => [
-          <Dropdown
-            key={i}
-            current={this.props.vals![i]}
-            values={Object.keys(this.attrValues).filter(
-              e =>
-                !this.props.hiddenAttributes!.includes(e) &&
-                !this.props.hiddenFromAggregators!.includes(e)
-            )}
-            open={this.isOpen(`val${i}`)}
-            zIndex={this.isOpen(`val${i}`) ? this.state.maxZIndex + 1 : 1}
-            toggle={() =>
-              this.setState({
-                openDropdown: this.isOpen(`val${i}`) ? false : `val${i}`,
-              })
-            }
-            setValue={value =>
-              this.sendPropUpdate({
-                vals: {$splice: [[i, 1, value]]},
-              })
-            }
-          />,
-          i + 1 !== numValsAllowed ? <br key={`br${i}`} /> : null,
-        ])}
+            <Dropdown
+              key={i}
+              current={this.props.vals![i]}
+              values={Object.keys(this.attrValues).filter(
+                e =>
+                  !this.props.hiddenAttributes!.includes(e) &&
+                  !this.props.hiddenFromAggregators!.includes(e),
+              )}
+              open={this.isOpen(`val${i}`)}
+              zIndex={this.isOpen(`val${i}`) ? this.state.maxZIndex + 1 : 1}
+              toggle={() =>
+                this.setState({
+                  openDropdown: this.isOpen(`val${i}`) ? false : `val${i}`,
+                })
+              }
+              setValue={value =>
+                this.sendPropUpdate({
+                  vals: { $splice: [[i, 1, value]] },
+                })
+              }
+            />,
+            i + 1 !== numValsAllowed ? <br key={`br${i}`} /> : null,
+          ])
+        }
       </td>
     )
 
@@ -278,7 +300,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
           !this.props.rows!.includes(e) &&
           !this.props.cols!.includes(e) &&
           !this.props.hiddenAttributes!.includes(e) &&
-          !this.props.hiddenFromDragDrop!.includes(e)
+          !this.props.hiddenFromDragDrop!.includes(e),
       )
       .sort(sortAs(this.state.unusedOrder))
 
@@ -287,39 +309,39 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
 
     const unusedAttrsCell = this.makeDnDCell(
       unusedAttrs,
-      order => this.setState({unusedOrder: order}),
+      order => this.setState({ unusedOrder: order }),
       `pvtAxisContainer pvtUnused ${
         horizUnused ? 'pvtHorizList' : 'pvtVertList'
-      }`
+      }`,
     )
 
     const colAttrs = this.props.cols!.filter(
       e =>
         !this.props.hiddenAttributes!.includes(e) &&
-        !this.props.hiddenFromDragDrop!.includes(e)
+        !this.props.hiddenFromDragDrop!.includes(e),
     )
 
     const colAttrsCell = this.makeDnDCell(
       colAttrs,
       this.propUpdater('cols'),
-      'pvtAxisContainer pvtHorizList pvtCols'
+      'pvtAxisContainer pvtHorizList pvtCols',
     )
 
     const rowAttrs = this.props.rows!.filter(
       e =>
         !this.props.hiddenAttributes!.includes(e) &&
-        !this.props.hiddenFromDragDrop!.includes(e)
+        !this.props.hiddenFromDragDrop!.includes(e),
     )
     const rowAttrsCell = this.makeDnDCell(
       rowAttrs,
       this.propUpdater('rows'),
-      'pvtAxisContainer pvtVertList pvtRows'
+      'pvtAxisContainer pvtVertList pvtRows',
     )
     const outputCell = (
       <td className="pvtOutput">
         <PivotTable
           {...update(this.props, {
-            data: {$set: this.materializedInput},
+            data: { $set: this.materializedInput },
           })}
         />
       </td>
@@ -328,7 +350,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     if (horizUnused) {
       return (
         <table className="pvtUi">
-          <tbody onClick={() => this.setState({openDropdown: false})}>
+          <tbody onClick={() => this.setState({ openDropdown: false })}>
             <tr>
               {rendererCell}
               {unusedAttrsCell}
@@ -348,7 +370,7 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
 
     return (
       <table className="pvtUi">
-        <tbody onClick={() => this.setState({openDropdown: false})}>
+        <tbody onClick={() => this.setState({ openDropdown: false })}>
           <tr>
             {rendererCell}
             {aggregatorCell}
@@ -364,5 +386,3 @@ class PivotTableUI extends React.PureComponent<IPivotTableUIProps, IState> {
     )
   }
 }
-
-export default PivotTableUI

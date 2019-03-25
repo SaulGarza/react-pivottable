@@ -10,7 +10,7 @@
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
  */
 
-const addSeparators = function(nStr, thousandsSep, decimalSep) {
+const addSeparators = (nStr: any, thousandsSep, decimalSep) => {
   const x = String(nStr).split('.');
   let x1 = x[0];
   const x2 = x.length > 1 ? decimalSep + x[1] : '';
@@ -21,7 +21,7 @@ const addSeparators = function(nStr, thousandsSep, decimalSep) {
   return x1 + x2;
 };
 
-const numberFormat = function(opts_in?: any) {
+const numberFormat = (opts_in?: any) => {
   const defaults = {
     digitsAfterDecimal: 2,
     scaler: 1,
@@ -31,14 +31,14 @@ const numberFormat = function(opts_in?: any) {
     suffix: '',
   };
   const opts = Object.assign({}, defaults, opts_in);
-  return function(x) {
+  return (x) => {
     if (isNaN(x) || !isFinite(x)) {
       return '';
     }
     const result = addSeparators(
       (opts.scaler * x).toFixed(opts.digitsAfterDecimal),
       opts.thousandsSep,
-      opts.decimalSep
+      opts.decimalSep,
     );
     return `${opts.prefix}${result}${opts.suffix}`;
   };
@@ -94,8 +94,8 @@ const naturalSort = (as, bs) => {
   }
 
   // finally, "smart" string sorting per http://stackoverflow.com/a/4373421/112871
-  let a = String(as);
-  let b = String(bs);
+  const a = String(as);
+  const b = String(bs);
   if (a === b) {
     return 0;
   }
@@ -104,14 +104,15 @@ const naturalSort = (as, bs) => {
   }
 
   // special treatment for strings containing digits
-  let aArray = a.match(rx);
-  let bArray = b.match(rx);
+  const aArray = a.match(rx);
+  const bArray = b.match(rx);
   while (a.length && b.length) {
     const a1 = aArray!.shift();
     const b1 = bArray!.shift();
     if (a1 !== b1) {
       if (rd.test(a1 as string) && rd.test(b1 as string)) {
-        return parseInt((a1 as string).replace(rz, '.0')) - parseInt((b1 as string).replace(rz, '.0'))
+        return parseInt((a1 as string).replace(rz, '.0'), undefined) -
+          parseInt((b1 as string).replace(rz, '.0'), undefined)
       }
       return (a1 as string) > (b1 as string) ? 1 : -1;
     }
@@ -119,37 +120,42 @@ const naturalSort = (as, bs) => {
   return a.length - b.length;
 };
 
-const sortAs = function(order) {
+const sortAs = (order) => {
   const mapping = {};
 
   // sort lowercased keys similarly
   const l_mapping = {};
-  for (const i in order) {
+  for (const i of Object.keys(order)) {
     const x = order[i];
     mapping[x] = i;
     if (typeof x === 'string') {
       l_mapping[x.toLowerCase()] = i;
     }
   }
-  return function(a, b) {
+  return (a, b) => {
     if (a in mapping && b in mapping) {
       return mapping[a] - mapping[b];
-    } else if (a in mapping) {
+    }
+    if (a in mapping) {
       return -1;
-    } else if (b in mapping) {
+    }
+    if (b in mapping) {
       return 1;
-    } else if (a in l_mapping && b in l_mapping) {
+    }
+    if (a in l_mapping && b in l_mapping) {
       return l_mapping[a] - l_mapping[b];
-    } else if (a in l_mapping) {
+    }
+    if (a in l_mapping) {
       return -1;
-    } else if (b in l_mapping) {
+    }
+    if (b in l_mapping) {
       return 1;
     }
     return naturalSort(a, b);
   };
 };
 
-const getSort = function(sorters, attr: any) {
+const getSort = (sorters, attr: any) => {
   if (sorters) {
     if (typeof sorters === 'function') {
       const sort = sorters(attr);
@@ -165,13 +171,12 @@ const getSort = function(sorters, attr: any) {
 
 // aggregator templates default to US number formatting but this is overrideable
 const usFmt = numberFormat();
-const usFmtInt = numberFormat({digitsAfterDecimal: 0});
+const usFmtInt = numberFormat({ digitsAfterDecimal: 0 });
 const usFmtPct = numberFormat({
   digitsAfterDecimal: 1,
   scaler: 100,
   suffix: '%',
 });
-
 
 const aggregatorTemplates: {
   count: (formatter?: Function) => any
@@ -191,11 +196,11 @@ const aggregatorTemplates: {
   median?: (f: Function) => (q: number, formatter: Function) => any
   average?: (f: Function) => (mode: string, ddof: number, formatter: Function) => any
   var?: (ddof: number, f: Function) => (mode: string, ddof: number, formatter: Function) => any
-  stdev?: (ddof: number, f: Function) => (mode: string, ddof: number, formatter: Function) => any
+  stdev?: (ddof: number, f: Function) => (mode: string, ddof: number, formatter: Function) => any,
 } = {
   count(formatter = usFmtInt) {
     return () =>
-      function() {
+      () => {
         return {
           count: 0,
           push() {
@@ -210,11 +215,13 @@ const aggregatorTemplates: {
   },
 
   uniques(fn, formatter = usFmtInt) {
-    return function([attr]) {
-      return function() {
-        return {
-          uniq: [],
-          push(record) {
+    return ([attr]) => {
+      return () => {
+        const tempUniq: any[] = []
+        // This is a comment
+        const returnedObject = {
+          uniq: tempUniq,
+          push(record: any) {
             if (!Array.from(this.uniq).includes(record[attr])) {
               this.uniq.push(record[attr]);
             }
@@ -224,14 +231,15 @@ const aggregatorTemplates: {
           },
           format: formatter,
           numInputs: typeof attr !== 'undefined' ? 0 : 1,
-        };
+        }
+        return returnedObject
       };
     };
   },
 
   sum(formatter = usFmt) {
-    return function([attr]) {
-      return function() {
+    return ([attr]) => {
+      return () => {
         return {
           sum: 0,
           push(record) {
@@ -250,13 +258,13 @@ const aggregatorTemplates: {
   },
 
   extremes(mode, formatter = usFmt) {
-    return function([attr]) {
-      return function(data) {
+    return ([attr]) => {
+      return (data) => {
         return {
           val: null,
           sorter: getSort(
             typeof data !== 'undefined' ? data.sorters : null,
-            attr
+            attr,
           ),
           push(record) {
             let x = record[attr];
@@ -295,10 +303,10 @@ const aggregatorTemplates: {
   },
 
   quantile(q, formatter = usFmt) {
-    return function([attr]) {
-      return function() {
+    return ([attr]) => {
+      return () => {
         return {
-          vals: [],
+          vals: ([] as any[]),
           push(record) {
             const x = parseFloat(record[attr]);
             if (!isNaN(x)) {
@@ -321,8 +329,8 @@ const aggregatorTemplates: {
   },
 
   runningStat(mode = 'mean', ddof = 1, formatter = usFmt) {
-    return function([attr]) {
-      return function() {
+    return ([attr]) => {
+      return () => {
         return {
           n: 0.0,
           m: 0.0,
@@ -367,8 +375,8 @@ const aggregatorTemplates: {
   },
 
   sumOverSum(formatter = usFmt) {
-    return function([num, denom]) {
-      return function() {
+    return ([num, denom]) => {
+      return () => {
         return {
           sumNum: 0,
           sumDenom: 0,
@@ -393,11 +401,11 @@ const aggregatorTemplates: {
 
   fractionOf(wrapped, type = 'total', formatter = usFmtPct) {
     return (...x) =>
-      function(data, rowKey, colKey) {
+      (data, rowKey, colKey) => {
         return {
-          selector: {total: [[], []], row: [rowKey, []], col: [[], colKey]}[
+          selector: { total: [[], []], row: [rowKey, []], col: [[], colKey] }[
             type
-          ],
+],
           inner: wrapped(...Array.from(x || []))(data, rowKey, colKey),
           push(record) {
             this.inner.push(record);
@@ -499,15 +507,15 @@ const derivers = {
     formatString,
     utcOutput = false,
     mthNames = mthNamesEn,
-    dayNames = dayNamesEn
+    dayNames = dayNamesEn,
   ) {
     const utc = utcOutput ? 'UTC' : '';
-    return function(record) {
+    return (record) => {
       const date = new Date(Date.parse(record[col]));
-      if (isNaN(parseInt(date.toUTCString()))) {
+      if (isNaN(parseInt(date.toUTCString(), undefined))) {
         return '';
       }
-      return formatString.replace(/%(.)/g, function(m, p) {
+      return formatString.replace(/%(.)/g, (m, p) => {
         switch (p) {
           case 'y':
             return date[`get${utc}FullYear`]();
@@ -539,16 +547,19 @@ const derivers = {
 Data Model class
 */
 export type inputData = any[] | Object | Function
-export type ObjectOfBooleans = {[b: string]: boolean}
-export type ObjectOfFunctions = {[f: string]: Function}
-export type ObjectOfNumbers = {[n: string]: number}
-export type ObjectOfStringArrays = {[a: string]: string[]}
+// tslint:disable-next-line:interface-name
+export interface ObjectOfBooleans {[b: string]: boolean}
+// tslint:disable-next-line:interface-name
+export interface ObjectOfFunctions {[f: string]: Function}
+// tslint:disable-next-line:interface-name
+export interface ObjectOfNumbers {[n: string]: number}
+// tslint:disable-next-line:interface-name
+export interface ObjectOfStringArrays {[a: string]: string[]}
 export enum OrderEnum {
   'key_a_to_z' = 'key_a_to_z',
   'value_a_to_z' = 'value_a_to_z',
   'value_z_to_a' = 'value_z_to_a',
 }
-
 
 // interface ITableTemplate {
 //   name: string
@@ -559,12 +570,15 @@ export enum OrderEnum {
 //                                       //  (Ex:
 //                                       //    AggregatorName='Count', vals=[]
 //                                       //    AggregatorName='Distinct Count', vals=['CBO#']
-//                                       //    AggregatorName='Sum over Sum', vals=['visit_Date', 'reference_Date']
+//                                       //    AggregatorName='Sum over Sum',
+//                                       //      vals=['visit_Date', 'reference_Date']
 //                                       //  )
 //   aggregatorName: string              // Name of Aggregator
-//   valueFilter: ObjectOfStringArrays   // Object where keys are attribute names, and values are records
+//   valueFilter: ObjectOfStringArrays   // Object where keys are attribute names,
+//                                       //  and values are records
 //                                       //  to include or exclude from computation and rendering
-//   rendererName: string                // Name of Renderer(Ex: 'Tables', 'Pie Chart', 'Heat Map', etc.)
+//   rendererName: string                // Name of Renderer
+//                                       //   (Ex: 'Tables', 'Pie Chart', 'Heat Map', etc.)
 //   hiddenAttributes: string[]          // Attributes to Omit from UI
 //   rowOrder: OrderEnum                 // Enum declaring which way to order the rows of the table
 //   colOrder: OrderEnum                 // Enum declaring which way to order the rows of the table
@@ -576,13 +590,12 @@ export enum OrderEnum {
 // }
 
 // serverValueFilter = {
-  
+
 // }
 
 // res.body = {
 //   "": {}
 // }
-
 
 export interface IPivotDataProps {
   data?: inputData
@@ -598,8 +611,8 @@ export interface IPivotDataProps {
   colOrder?: OrderEnum
 }
 export const PivotDataDefaultProps = {
+  aggregators,
   data: [],
-  aggregators: aggregators,
   cols: [],
   rows: [],
   vals: [],
@@ -624,7 +637,7 @@ class PivotData {
   constructor(inputProps: { data: inputData } & any = {}) {
     this.props = Object.assign({}, this.defaultProps, inputProps)
     this.aggregator = this.props.aggregators![this.props.aggregatorName!](
-      this.props.vals
+      this.props.vals,
     );
     this.tree = {};
     this.rowKeys = [];
@@ -636,17 +649,17 @@ class PivotData {
 
     // iterate through input, accumulating data for cells
     this.forEachRecord(
-      this.props.data,
+      this.props.data!,
       this.props.derivedAttributes,
-      record => {
+      (record) => {
         if (this.filter(record)) {
           this.processRecord(record);
         }
-      }
+      },
     );
   }
 
-  filter(record) {
+  public filter(record) {
     for (const k in this.props.valueFilter) {
       if (record[k] in this.props.valueFilter[k]) {
         return false;
@@ -655,35 +668,35 @@ class PivotData {
     return true;
   }
 
-  forEachMatchingRecord(criteria, callback) {
+  public forEachMatchingRecord(criteria, callback) {
     return this.forEachRecord(
-      this.props.data,
+      this.props.data!,
       this.props.derivedAttributes,
-      record => {
+      (record) => {
         if (!this.filter(record)) {
           return;
         }
-        for (const k in criteria) {
+        for (const k of Object.keys(criteria)) {
           const v = criteria[k];
           if (v !== (k in record ? record[k] : 'null')) {
             return;
           }
         }
         callback(record);
-      }
+      },
     );
   }
 
-  arrSort(attrs) {
-    let a;
+  public arrSort(attrs) {
+    let c;
     const sortersArr = (() => {
       const result: any[] = [];
-      for (a of Array.from(attrs)) {
-        result.push(getSort(this.props.sorters, a));
+      for (c of Array.from(attrs)) {
+        result.push(getSort(this.props.sorters, c));
       }
       return result;
     })();
-    return function(a, b) {
+    return (a, b) => {
       for (const i of Object.keys(sortersArr || {})) {
         const sorter = sortersArr[i];
         const comparison = sorter(a[i], b[i]);
@@ -695,7 +708,7 @@ class PivotData {
     };
   }
 
-  sortKeys() {
+  public sortKeys() {
     if (!this.sorted) {
       this.sorted = true;
       const v = (r, c) => this.getAggregator(r, c).value();
@@ -722,17 +735,17 @@ class PivotData {
     }
   }
 
-  getColKeys() {
+  public getColKeys() {
     this.sortKeys();
     return this.colKeys;
   }
 
-  getRowKeys() {
+  public getRowKeys() {
     this.sortKeys();
     return this.rowKeys;
   }
 
-  processRecord(record) {
+  public processRecord(record) {
     // this code is called in a tight loop
     const colKey: any = [];
     const rowKey: any = [];
@@ -771,14 +784,14 @@ class PivotData {
         this.tree[flatRowKey][flatColKey] = this.aggregator(
           this,
           rowKey,
-          colKey
+          colKey,
         );
       }
       this.tree[flatRowKey][flatColKey].push(record);
     }
   }
 
-  getAggregator(rowKey, colKey) {
+  public getAggregator(rowKey, colKey) {
     let agg;
     const flatRowKey = rowKey.join(String.fromCharCode(0));
     const flatColKey = colKey.join(String.fromCharCode(0));
@@ -804,33 +817,34 @@ class PivotData {
   }
 
   // can handle arrays or jQuery selections of tables
-  public forEachRecord(input, derivedAttributes, f) {
-    let addRecord, record;
+  public forEachRecord(input: inputData, derivedAttributes, f) {
+    let addRecord
+    let record;
     if (Object.getOwnPropertyNames(derivedAttributes).length === 0) {
       addRecord = f;
     } else {
-      addRecord = function(record) {
-        for (const k in derivedAttributes) {
-          const derived = derivedAttributes[k](record);
+      addRecord = (newRecord) => {
+        for (const k of Object.keys(derivedAttributes)) {
+          const derived = derivedAttributes[k](newRecord);
           if (derived !== null) {
-            record[k] = derived;
+            newRecord[k] = derived;
           }
         }
-        return f(record);
+        return f(newRecord);
       };
     }
-  
+
     // if it's a function, have it call us back
     if (typeof input === 'function') {
       return input(addRecord);
-    } else if (Array.isArray(input)) {
+    }  if (Array.isArray(input)) {
       if (Array.isArray(input[0])) {
         // array of arrays
         return (() => {
           const result: any[] = [];
           for (const i of Object.keys(input || {})) {
             const compactRecord = input[i];
-            if (parseInt(i) > 0) {
+            if (parseInt(i, undefined) > 0) {
               record = {};
               for (const j of Object.keys(input[0] || {})) {
                 const k = input[0][j];
@@ -842,7 +856,7 @@ class PivotData {
           return result;
         })();
       }
-  
+
       // array of objects
       return (() => {
         const result1: any[] = [];
