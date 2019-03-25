@@ -1,6 +1,9 @@
 import * as React from 'react'
-import Draggable from 'react-draggable';
-import { ObjectOfNumbers, ObjectOfBooleans } from './Utilities';
+import Draggable from 'react-draggable'
+import {
+  ObjectOfBooleans,
+  ObjectOfNumbers,
+} from './Utilities'
 
 interface IProps {
   name: string
@@ -19,12 +22,12 @@ interface IState {
   filterText: string
 }
 export default class DraggableAttribute extends React.Component<IProps, IState> {
-  static defaultProps = {
+  public static defaultProps = {
     valueFilter: {},
   }
   public state = {
     open: false,
-    filterText: ''
+    filterText: '',
   }
   constructor(props: IProps) {
     super(props)
@@ -32,9 +35,9 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
 
   public toggleValue(value: any) {
     if (value in this.props.valueFilter!) {
-      this.props.removeValuesFromFilter(this.props.name, [value])  
+      this.props.removeValuesFromFilter(this.props.name, [value])
     } else {
-      this.props.addValuesToFilter(this.props.name, [value])  
+      this.props.addValuesToFilter(this.props.name, [value])
     }
   }
 
@@ -42,29 +45,29 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
     return x
       .toLowerCase()
       .trim()
-      .includes(this.state.filterText.toLowerCase().trim())  
+      .includes(this.state.filterText.toLowerCase().trim())
   }
 
   public selectOnly(e: React.MouseEvent<HTMLAnchorElement,MouseEvent>, value: any) {
-    e.stopPropagation()  
+    e.stopPropagation()
     if(!!this.props.setValuesInFilter) {
       this.props.setValuesInFilter(
         this.props.name,
-        Object.keys(this.props.attrValues).filter(y => y !== value)
-      )  
+        Object.keys(this.props.attrValues).filter(y => y !== value),
+      )
     }
   }
 
   public getFilterBox() {
     let menuLimit = this.props.menuLimit
     if(!this.props.menuLimit) {
-      menuLimit = 1  
+      menuLimit = 1
     }
-    const showMenu = Object.keys(this.props.attrValues).length < menuLimit!  
-    const values = Object.keys(this.props.attrValues)  
+    const showMenu = Object.keys(this.props.attrValues).length < menuLimit!
+    const values = Object.keys(this.props.attrValues)
     const shown = values
       .filter(this.matchesFilter.bind(this))
-      .sort(this.props.sorter!())  
+      .sort(this.props.sorter!())
 
     return (
       <Draggable handle=".pvtDragHandle">
@@ -73,11 +76,11 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
           style={{
             display: 'block',
             cursor: 'initial',
-            zIndex: this.props.zIndex
+            zIndex: this.props.zIndex,
           }}
           onClick={() => this.props.moveFilterBoxToTop(this.props.name)}
         >
-          <a onClick={() => this.setState({open: false})} className="pvtCloseX">
+          <a onClick={() => this.setState({ open: false })} className="pvtCloseX">
             ×
           </a>
           <span className="pvtDragHandle">☰</span>
@@ -106,8 +109,8 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
                   this.props.removeValuesFromFilter(
                     this.props.name,
                     Object.keys(this.props.attrValues).filter(
-                      this.matchesFilter.bind(this)
-                    )
+                      this.matchesFilter.bind(this),
+                    ),
                   )
                 }
               >
@@ -120,8 +123,8 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
                   this.props.addValuesToFilter(
                     this.props.name,
                     Object.keys(this.props.attrValues).filter(
-                      this.matchesFilter.bind(this)
-                    )
+                      this.matchesFilter.bind(this),
+                    ),
                   )
                 }
               >
@@ -150,26 +153,26 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
           )}
         </div>
       </Draggable>
-    )  
+    )
   }
 
   public toggleFilterBox() {
-    this.setState({ open: !this.state.open})  
-    this.props.moveFilterBoxToTop(this.props.name)  
+    this.setState({ open: !this.state.open })
+    this.props.moveFilterBoxToTop(this.props.name)
   }
 
   public render() {
     const filtered =
       Object.keys(this.props.valueFilter!).length !== 0
         ? 'pvtFilteredAttribute'
-        : ''  
+        : ''
     return (
       <li data-id={this.props.name}>
-        <span className={'pvtAttr ' + filtered}>
+        <span className={`pvtAttr ${filtered}`}>
           {this.props.name}
           <span
             className="pvtTriangle"
-            onClick={this.toggleFilterBox.bind(this)}
+            onClick={() => this.toggleFilterBox()}
           >
             {' '}
             ▾
@@ -178,6 +181,6 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
 
         {this.state.open ? this.getFilterBox() : null}
       </li>
-    )  
+    )
   }
 }
