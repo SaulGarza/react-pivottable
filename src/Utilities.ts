@@ -598,17 +598,17 @@ export enum OrderEnum {
 // }
 
 export interface IPivotDataProps {
-  data?: inputData
-  aggregators?: ObjectOfFunctions
-  aggregatorName?: string
-  cols?: string[]
-  rows?: string[]
-  vals?: string[]
-  valueFilter?: {[o: string]: ObjectOfBooleans}
-  sorters?: Function | ObjectOfFunctions
-  derivedAttributes?: ObjectOfFunctions
-  rowOrder?: OrderEnum
-  colOrder?: OrderEnum
+  data: inputData
+  aggregators: ObjectOfFunctions
+  aggregatorName: string
+  cols: string[]
+  rows: string[]
+  vals: string[]
+  valueFilter: {[o: string]: ObjectOfBooleans}
+  sorters: ((a: string, b: string) => number) | undefined
+  derivedAttributes: ObjectOfFunctions
+  rowOrder: OrderEnum
+  colOrder: OrderEnum
 }
 export const PivotDataDefaultProps = {
   aggregators,
@@ -617,7 +617,7 @@ export const PivotDataDefaultProps = {
   rows: [],
   vals: [],
   aggregatorName: 'Count',
-  sorters: {},
+  sorters: undefined,
   valueFilter: {},
   rowOrder: OrderEnum.key_a_to_z,
   colOrder: OrderEnum.key_a_to_z,
@@ -627,8 +627,8 @@ class PivotData {
   public defaultProps = PivotDataDefaultProps
   private aggregator: any
   private tree: any
-  private rowKeys: string[]
-  private colKeys: string[]
+  private rowKeys: any
+  private colKeys: any
   private rowTotals: any
   private colTotals: any
   private allTotal: any

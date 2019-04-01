@@ -5,6 +5,8 @@ import {
   PivotDataDefaultProps,
 } from './Utilities'
 
+import * as XLSX from 'xlsx'
+
 // helper function for setting row/col-span in pivotTableRenderer
 const spanSize = (arr, i, j) => {
   let x
@@ -66,13 +68,137 @@ interface ITableRendererProps extends IPivotDataProps {
     clickCallback?: Function,
   }
 }
+interface IState {
+  drilldownData: Object[]
+  drilldownActive: boolean
+}
 export function makeRenderer(opts: any = {}) {
-  class TableRenderer extends React.PureComponent<ITableRendererProps,{}> {
+  class TableRenderer extends React.PureComponent<ITableRendererProps,IState> {
     public static defaultProps = {
       ...PivotDataDefaultProps,
       tableColorScaleGenerator: redColorScaleGenerator,
       tableOptions: {},
     }
+    public state: IState = {
+      drilldownData: [],
+      drilldownActive: false,
+    }
+    constructor(props: ITableRendererProps) {
+      super(props)
+      props.tableOptions.clickCallback = (e, value, filters, pivotData) => {
+        let records: Object[] = []
+        pivotData.forEachMatchingRecord(
+          filters,
+          (record: any) => {
+            records = records.concat([record])
+          },
+        )
+        this.activateDrilldown(records)
+      }
+    }
+    public activateDrilldown(data: Object[]) {
+      console.log('DRILLDOWN DATA:', data)
+      this.setState((prevState) => {
+        return {
+          ...prevState,
+          drilldownData: data,
+          drilldownActive: true,
+        }
+      })
+    }
+    public disableDrilldown() {
+      this.setState(
+        prevState => ({
+          ...prevState,
+          drilldownActive: false,
+        }),
+        () => {
+          window.setTimeout(
+            () => {
+              this.setState(prevState => ({
+                ...prevState,
+                drilldownData: [],
+              }))
+            },
+            300,
+          )
+        },
+      )
+    }
+
+    public export(fileName: string = 'Report Data', type: 'tsv' | 'csv' | 'xlsx') {
+      let dataConstruct: any
+      const workbook = XLSX.utils.book_new()
+      if(this.state.drilldownActive) {
+        if(type === 'xlsx') {
+          dataConstruct = XLSX.utils.json_to_sheet(this.state.drilldownData)
+        } else {
+          let headerArray: any[] = []
+          for(const key of Object.keys(this.state.drilldownData[0])) {
+            headerArray = headerArray.concat([key])
+          }
+          let dataArray: any[] = [headerArray]
+          this.state.drilldownData.forEach((o) => {
+            let tempArray: any[] = []
+            for(const key of Object.keys(o)) {
+              tempArray = tempArray.concat([o[key]])
+            }
+            dataArray = dataArray.concat([tempArray])
+          });
+          dataConstruct = dataArray
+        }
+      } else {
+        const pivotData = new PivotData(this.props)
+        const rowKeys: any[] = pivotData.getRowKeys()
+        const colKeys: any[] = pivotData.getColKeys()
+        if (rowKeys.length === 0) {
+          rowKeys.push([])
+        }
+        if (colKeys.length === 0) {
+          colKeys.push([])
+        }
+
+        const headerRow = pivotData.props.rows.map(r => r)
+        if (colKeys.length === 1 && colKeys[0].length === 0) {
+          headerRow.push(this.props.aggregatorName)
+        } else {
+          colKeys.map(c => headerRow.push(c.join('-')))
+        }
+
+        const result = rowKeys.map((r) => {
+          const row = r.map(x => x)
+          colKeys.map((c) => {
+            const v = pivotData.getAggregator(r, c).value()
+            row.push(v ? v : '')
+          })
+          return row
+        })
+
+        result.unshift(headerRow)
+        if(type === 'xlsx') {
+          dataConstruct = XLSX.utils.aoa_to_sheet(result)
+        } else {
+          dataConstruct = result
+        }
+      }
+      if(type === 'xlsx') {
+        XLSX.utils.book_append_sheet(workbook, dataConstruct, 'sheet 1')
+        XLSX.writeFile(workbook, `${fileName}.xlsx`)
+      } else {
+        let data: any
+        if(type === 'csv') {
+          data = dataConstruct.map(r => r.join(',')).join('\n')
+        } else {
+          data = dataConstruct.map(r => r.join('\t')).join('\n')
+        }
+        const link = document.createElement('a');
+        link.download = `${fileName}.${type}`;
+        const blob = new Blob([data], { type: 'text/plain' });
+        link.href = window.URL.createObjectURL(blob);
+        link.click();
+      }
+    }
+
     public render() {
       const pivotData = new PivotData(this.props)
       const colAttrs = pivotData.props.cols
@@ -81,9 +207,9 @@ export function makeRenderer(opts: any = {}) {
       const colKeys = pivotData.getColKeys()
       const grandTotalAggregator = pivotData.getAggregator([], [])
 
-      let valueCellColors: (r: any, c: any, v: any) => React.CSSProperties | undefined
-      let rowTotalColors: ColorScaleGeneratorReturn
-      let colTotalColors: ColorScaleGeneratorReturn
+      let valueCellColors: ((r: any, c: any, v: any) => React.CSSProperties | undefined) | undefined
+      let rowTotalColors: ColorScaleGeneratorReturn | undefined
+      let colTotalColors: ColorScaleGeneratorReturn | undefined
       if (opts.heatmapMode) {
         const colorScaleGenerator = this.props.tableColorScaleGenerator
         const rowTotalValues = colKeys.map(x =>
@@ -217,7 +343,7 @@ export function makeRenderer(opts: any = {}) {
               const totalAggregator = pivotData.getAggregator(rowKey, [])
               return (
                 <tr key={`rowKeyRow${i}`}>
-                  {rowKeys.map((txt, j) => {
+                  {rowKey.map((txt, j) => {
                     const x = spanSize(rowKeys, i, j)
                     if (x === -1) {
                       return null
@@ -247,11 +373,11 @@ export function makeRenderer(opts: any = {}) {
                           getClickHandler &&
                           getClickHandler(aggregator.value(), rowKey, colKey)
                         }
-                        style={valueCellColors(
+                        style={valueCellColors ? valueCellColors(
                           rowKey,
                           colKey,
                           aggregator.value(),
-                        )}
+                        ) : {}}
                       >
                         {aggregator.format(aggregator.value())}
                       </td>
@@ -263,7 +389,7 @@ export function makeRenderer(opts: any = {}) {
                       getClickHandler &&
                       getClickHandler(totalAggregator.value(), rowKey, [null])
                     }
-                    style={colTotalColors(totalAggregator.value())}
+                    style={colTotalColors ? colTotalColors(totalAggregator.value()) : {}}
                   >
                     {totalAggregator.format(totalAggregator.value())}
                   </td>
@@ -289,7 +415,7 @@ export function makeRenderer(opts: any = {}) {
                       getClickHandler &&
                       getClickHandler(totalAggregator.value(), [null], colKey)
                     }
-                    style={rowTotalColors(totalAggregator.value())}
+                    style={rowTotalColors ? rowTotalColors(totalAggregator.value()) : {}}
                   >
                     {totalAggregator.format(totalAggregator.value())}
                   </td>
@@ -307,6 +433,49 @@ export function makeRenderer(opts: any = {}) {
               </td>
             </tr>
           </tbody>
+          <div
+            className={`pvt__drilldownContainer ${this.state.drilldownActive ? 'active' : ''}`}
+            onClick={() => this.disableDrilldown()}
+          >
+            {(() => {
+              if(!this.state.drilldownData.length) {
+                return null
+              }
+              const drilldownKeys = Object.keys(this.state.drilldownData[0])
+              return (
+                <div className="pvt__tableWrapper">
+                  <td className="pvtOutput">
+                    <table>
+                      <thead>
+                        <tr>
+                          {drilldownKeys.map((columnKeys, i) => {
+                            return (
+                              <th key={i}>{columnKeys}</th>
+                            )
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {this.state.drilldownData.map((row, i) => {
+                          return (
+                            <tr key={i}>
+                              {drilldownKeys.map((key, k) => {
+                                return (
+                                  <td key={k}>
+                                    {row[key]}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </td>
+                </div>
+              )
+            })()}
+          </div>
         </table>
       )
     }

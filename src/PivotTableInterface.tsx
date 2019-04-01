@@ -11,26 +11,30 @@ import {
 import {
   getSort,
   ObjectOfNumbers,
+  OrderEnum,
   PivotData,
   sortAs,
 } from './Utilities'
 
 interface IPivotTableUIProps extends IPivotTableProps {
   onChange: (f: any) => any
-  hiddenAttributes?: string[]
-  hiddenFromAggregators?: string[]
-  hiddenFromDragDrop?: string[]
-  unusedOrientationCutoff?: number
-  menuLimit?: number
+  hiddenAttributes: string[]
+  hiddenFromAggregators: string[]
+  hiddenFromDragDrop: string[]
+  unusedOrientationCutoff: number
+  menuLimit: number
 }
 interface IState {
   unusedOrder: any[]
   zIndices: ObjectOfNumbers
   maxZIndex: number
   openDropdown: boolean | string
+  hideUnusedAttrs: boolean
 }
 export default class PivotTableInterface extends React.PureComponent<IPivotTableUIProps, IState> {
-  public static props: IPivotTableUIProps = {
+  private mouseTimer: any = null
+  public RenderedTable: any
+  public static defaultProps: IPivotTableUIProps = {
     ...PivotTable.defaultProps,
     onChange: () => undefined,
     hiddenAttributes: [],
@@ -44,6 +48,7 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
     zIndices: {},
     maxZIndex: 1000,
     openDropdown: false,
+    hideUnusedAttrs: false,
   }
   public data = []
   public materializedInput: any[]
@@ -114,7 +119,7 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
   }
 
   public addValuesToFilter(attribute, values) {
-    if (attribute in this.props.valueFilter!) {
+    if (attribute in this.props.valueFilter) {
       this.sendPropUpdate({
         valueFilter: {
           [attribute]: values.reduce(
@@ -168,7 +173,10 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
             name={x}
             key={x}
             attrValues={this.attrValues[x]}
-            valueFilter={this.props.valueFilter![x] || {}}
+            valueFilter={this.props.valueFilter && this.props.valueFilter[x] ?
+              this.props.valueFilter[x] :
+              {}
+            }
             sorter={getSort(this.props.sorters, x)}
             menuLimit={this.props.menuLimit}
             setValuesInFilter={(attr: any, values: any) => this.setValuesInFilter(attr, values)}
@@ -183,19 +191,37 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
     )
   }
 
+  public mouseEnter() {
+    this.mouseTimer = window.setTimeout(
+      () => {
+        this.setState(prevState => ({
+          ...prevState,
+          hideUnusedAttrs: true,
+        }))
+      },
+      300,
+    )
+  }
+  public mouseLeave() {
+    window.clearTimeout(this.mouseTimer)
+    this.setState(prevState => ({
+      ...prevState,
+      hideUnusedAttrs: false,
+    }))
+  }
+
   public render() {
-    const numValsAllowed =
-      this.props.aggregators![this.props.aggregatorName!]([])().numInputs || 0
+    const numValsAllowed = this.props.aggregators[this.props.aggregatorName]([])().numInputs || 0
 
     const rendererName =
-      this.props.rendererName! in this.props.renderers
+      this.props.rendererName in this.props.renderers
         ? this.props.rendererName
         : Object.keys(this.props.renderers)[0]
 
     const rendererCell = (
       <td className="pvtRenderers">
         <Dropdown
-          current={rendererName!}
+          current={rendererName}
           values={Object.keys(this.props.renderers)}
           open={this.isOpen('renderer')}
           zIndex={this.isOpen('renderer') ? this.state.maxZIndex + 1 : 1}
@@ -229,51 +255,55 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
         next: 'key_a_to_z',
       },
     }
+    const defaultSort = OrderEnum.value_a_to_z
 
     const aggregatorCell = (
       <td className="pvtVals">
-        <Dropdown
-          current={this.props.aggregatorName!}
-          values={Object.keys(this.props.aggregators!)}
-          open={this.isOpen('aggregators')}
-          zIndex={this.isOpen('aggregators') ? this.state.maxZIndex + 1 : 1}
-          toggle={() =>
-            this.setState({
-              openDropdown: this.isOpen('aggregators') ? false : 'aggregators',
-            })
-          }
-          setValue={this.propUpdater('aggregatorName')}
-        />
-        <a
-          role="button"
-          className="pvtRowOrder"
-          onClick={() =>
-            this.propUpdater('rowOrder')(sortIcons[this.props.rowOrder!].next)
-          }
-        >
-          {sortIcons[this.props.rowOrder!].rowSymbol}
-        </a>
-        <a
-          role="button"
-          className="pvtColOrder"
-          onClick={() =>
-            this.propUpdater('colOrder')(sortIcons[this.props.colOrder!].next)
-          }
-        >
-          {sortIcons[this.props.colOrder!].colSymbol}
-        </a>
-        {numValsAllowed > 0 && <br />}
+        <div>
+          <Dropdown
+            current={this.props.aggregatorName}
+            values={Object.keys(this.props.aggregators)}
+            open={this.isOpen('aggregators')}
+            zIndex={this.isOpen('aggregators') ? this.state.maxZIndex + 1 : 1}
+            toggle={() =>
+              this.setState({
+                openDropdown: this.isOpen('aggregators') ? false : 'aggregators',
+              })
+            }
+            setValue={this.propUpdater('aggregatorName')}
+          />
+          <a
+            role="button"
+            className="pvtRowOrder"
+            onClick={
+              () => {
+                this.propUpdater('rowOrder')(sortIcons[this.props.rowOrder || defaultSort].next)
+              }
+            }
+          >
+            {sortIcons[this.props.rowOrder || defaultSort].rowSymbol}
+          </a>
+          <a
+            role="button"
+            className="pvtColOrder"
+            onClick={() =>
+              this.propUpdater('colOrder')(sortIcons[this.props.colOrder || defaultSort].next)
+            }
+          >
+            {sortIcons[this.props.colOrder || defaultSort].colSymbol}
+          </a>
+        </div>
         { // Initialize new Array of length[numValsAllowed] with undefined,
           // then immediately map data to it
           // tslint:disable-next-line:prefer-array-literal
           new Array(numValsAllowed).fill(undefined).map((n, i) => [
             <Dropdown
               key={i}
-              current={this.props.vals![i]}
+              current={this.props.vals[i]}
               values={Object.keys(this.attrValues).filter(
                 e =>
-                  !this.props.hiddenAttributes!.includes(e) &&
-                  !this.props.hiddenFromAggregators!.includes(e),
+                  !this.props.hiddenAttributes.includes(e) &&
+                  !this.props.hiddenFromAggregators.includes(e),
               )}
               open={this.isOpen(`val${i}`)}
               zIndex={this.isOpen(`val${i}`) ? this.state.maxZIndex + 1 : 1}
@@ -288,7 +318,6 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
                 })
               }
             />,
-            i + 1 !== numValsAllowed ? <br key={`br${i}`} /> : null,
           ])
         }
       </td>
@@ -297,29 +326,27 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
     const unusedAttrs = Object.keys(this.attrValues)
       .filter(
         e =>
-          !this.props.rows!.includes(e) &&
-          !this.props.cols!.includes(e) &&
-          !this.props.hiddenAttributes!.includes(e) &&
-          !this.props.hiddenFromDragDrop!.includes(e),
+          !this.props.rows.includes(e) &&
+          !this.props.cols.includes(e) &&
+          !this.props.hiddenAttributes.includes(e) &&
+          !this.props.hiddenFromDragDrop.includes(e),
       )
       .sort(sortAs(this.state.unusedOrder))
 
-    const unusedLength = unusedAttrs.reduce((r, e) => r + e.length, 0)
-    const horizUnused = unusedLength < this.props.unusedOrientationCutoff!
+    // const unusedLength = unusedAttrs.reduce((r, e) => r + e.length, 0)
+    // const horizUnused = unusedLength < this.props.unusedOrientationCutoff!
 
     const unusedAttrsCell = this.makeDnDCell(
       unusedAttrs,
       order => this.setState({ unusedOrder: order }),
-      `pvtAxisContainer pvtUnused ${
-        horizUnused ? 'pvtHorizList' : 'pvtVertList'
-      }`,
+      'pvtAxisContainer pvtUnused pvtVertList',
     )
 
-    const colAttrs = this.props.cols!.filter(
+    const colAttrs = this.props.cols ? this.props.cols.filter(
       e =>
-        !this.props.hiddenAttributes!.includes(e) &&
-        !this.props.hiddenFromDragDrop!.includes(e),
-    )
+        !this.props.hiddenAttributes.includes(e) &&
+        !this.props.hiddenFromDragDrop.includes(e),
+    ) : []
 
     const colAttrsCell = this.makeDnDCell(
       colAttrs,
@@ -327,11 +354,12 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
       'pvtAxisContainer pvtHorizList pvtCols',
     )
 
-    const rowAttrs = this.props.rows!.filter(
+    const rowAttrs = this.props.rows ? this.props.rows.filter(
       e =>
-        !this.props.hiddenAttributes!.includes(e) &&
-        !this.props.hiddenFromDragDrop!.includes(e),
-    )
+        !this.props.hiddenAttributes.includes(e) &&
+        !this.props.hiddenFromDragDrop.includes(e),
+    ) : []
+
     const rowAttrsCell = this.makeDnDCell(
       rowAttrs,
       this.propUpdater('rows'),
@@ -343,46 +371,38 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
           {...update(this.props, {
             data: { $set: this.materializedInput },
           })}
+          ref={component => this.RenderedTable = component!.RenderedTable}
         />
       </td>
     )
 
-    if (horizUnused) {
-      return (
-        <table className="pvtUi">
-          <tbody onClick={() => this.setState({ openDropdown: false })}>
-            <tr>
-              {rendererCell}
-              {unusedAttrsCell}
-            </tr>
-            <tr>
-              {aggregatorCell}
-              {colAttrsCell}
-            </tr>
-            <tr>
-              {rowAttrsCell}
-              {outputCell}
-            </tr>
-          </tbody>
-        </table>
-      )
-    }
-
     return (
-      <table className="pvtUi">
-        <tbody onClick={() => this.setState({ openDropdown: false })}>
-          <tr>
-            {rendererCell}
-            {aggregatorCell}
-            {colAttrsCell}
-          </tr>
-          <tr>
+      <div
+        className={`pvtUi ${numValsAllowed ? `pvt__numVals${numValsAllowed}` : ''}`}
+        onClick={() => this.setState({ openDropdown: false })}
+      >
+        <div className={`pvt__left ${this.state.hideUnusedAttrs ? 'hidden' : ''}`}>
+          {rendererCell}
+          <div>
             {unusedAttrsCell}
+          </div>
+        </div>
+        <div className="pvt__middle">
+          {aggregatorCell}
+          <div>
             {rowAttrsCell}
+          </div>
+        </div>
+        <div className="pvt__right">
+          {colAttrsCell}
+          <div
+            onMouseEnter={() => this.mouseEnter()}
+            onMouseLeave={() => this.mouseLeave()}
+          >
             {outputCell}
-          </tr>
-        </tbody>
-      </table>
+          </div>
+        </div>
+      </div>
     )
   }
 }

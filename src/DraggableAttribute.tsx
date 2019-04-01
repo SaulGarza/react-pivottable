@@ -5,11 +5,13 @@ import {
   ObjectOfNumbers,
 } from './Utilities'
 
+import * as ReactDOM from 'react-dom'
+
 interface IProps {
   name: string
   attrValues: ObjectOfNumbers
   moveFilterBoxToTop: Function
-  sorter: Function
+  sorter: ((a: string, b: string) => number) | undefined
   addValuesToFilter: (name: string, values: any[]) => any
   removeValuesFromFilter: (name: string, values: any[]) => any
   setValuesInFilter?: (name: string, values: any) => any
@@ -20,6 +22,8 @@ interface IProps {
 interface IState {
   open: boolean
   filterText: string
+  x: number
+  y: number
 }
 export default class DraggableAttribute extends React.Component<IProps, IState> {
   public static defaultProps = {
@@ -28,6 +32,8 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
   public state = {
     open: false,
     filterText: '',
+    x: 0,
+    y: 0,
   }
   constructor(props: IProps) {
     super(props)
@@ -65,99 +71,117 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
     }
     const showMenu = Object.keys(this.props.attrValues).length < menuLimit!
     const values = Object.keys(this.props.attrValues)
+    console.log(this.props.sorter)
     const shown = values
       .filter(this.matchesFilter.bind(this))
-      .sort(this.props.sorter!())
+      .sort(this.props.sorter)
 
-    return (
-      <Draggable handle=".pvtDragHandle">
-        <div
-          className="pvtFilterBox"
-          style={{
-            display: 'block',
-            cursor: 'initial',
-            zIndex: this.props.zIndex,
-          }}
-          onClick={() => this.props.moveFilterBoxToTop(this.props.name)}
+    const appRoot = document.getElementById('root')
+    return ReactDOM.createPortal(
+      (
+        <Draggable
+          handle=".pvtDragHandle"
+          defaultPosition={{ x: this.state.x, y: this.state.y }}
         >
-          <a onClick={() => this.setState({ open: false })} className="pvtCloseX">
-            ×
-          </a>
-          <span className="pvtDragHandle">☰</span>
-          <h4>{this.props.name}</h4>
+          <div
+            className="pvtFilterBox"
+            style={{
+              display: 'block',
+              cursor: 'initial',
+              pointerEvents: 'all',
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              zIndex: this.props.zIndex,
+            }}
+            onClick={() => this.props.moveFilterBoxToTop(this.props.name)}
+          >
+            <a onClick={() => this.setState({ open: false })} className="pvtCloseX">
+              ×
+            </a>
+            <span className="pvtDragHandle">☰</span>
+            <h4>{this.props.name}</h4>
 
-          {showMenu || <p>(too many values to show)</p>}
+            {showMenu || <p>(too many values to show)</p>}
 
-          {showMenu && (
-            <p>
-              <input
-                type="text"
-                placeholder="Filter values"
-                className="pvtSearch"
-                value={this.state.filterText}
-                onChange={e =>
-                  this.setState({
-                    filterText: e.target.value,
-                  })
-                }
-              />
-              <br />
-              <a
-                role="button"
-                className="pvtButton"
-                onClick={() =>
-                  this.props.removeValuesFromFilter(
-                    this.props.name,
-                    Object.keys(this.props.attrValues).filter(
-                      this.matchesFilter.bind(this),
-                    ),
-                  )
-                }
-              >
-                Select {values.length === shown.length ? 'All' : shown.length}
-              </a>{' '}
-              <a
-                role="button"
-                className="pvtButton"
-                onClick={() =>
-                  this.props.addValuesToFilter(
-                    this.props.name,
-                    Object.keys(this.props.attrValues).filter(
-                      this.matchesFilter.bind(this),
-                    ),
-                  )
-                }
-              >
-                Deselect {values.length === shown.length ? 'All' : shown.length}
-              </a>
-            </p>
-          )}
-
-          {showMenu && (
-            <div className="pvtCheckContainer">
-              {shown.map(x => (
-                <p
-                  key={x}
-                  onClick={() => this.toggleValue(x)}
-                  className={x in this.props.valueFilter! ? '' : 'selected'}
+            {showMenu && (
+              <p>
+                <input
+                  type="text"
+                  placeholder="Filter values"
+                  className="pvtSearch"
+                  value={this.state.filterText}
+                  onChange={e =>
+                    this.setState({
+                      filterText: e.target.value,
+                    })
+                  }
+                />
+                <br />
+                <a
+                  role="button"
+                  className="pvtButton"
+                  onClick={() =>
+                    this.props.removeValuesFromFilter(
+                      this.props.name,
+                      Object.keys(this.props.attrValues).filter(
+                        this.matchesFilter.bind(this),
+                      ),
+                    )
+                  }
                 >
-                  <a className="pvtOnly" onClick={e => this.selectOnly(e, x)}>
-                    only
-                  </a>
-                  <a className="pvtOnlySpacer">&nbsp;</a>
+                  Select {values.length === shown.length ? 'All' : shown.length}
+                </a>{' '}
+                <a
+                  role="button"
+                  className="pvtButton"
+                  onClick={() =>
+                    this.props.addValuesToFilter(
+                      this.props.name,
+                      Object.keys(this.props.attrValues).filter(
+                        this.matchesFilter.bind(this),
+                      ),
+                    )
+                  }
+                >
+                  Deselect {values.length === shown.length ? 'All' : shown.length}
+                </a>
+              </p>
+            )}
 
-                  {x === '' ? <em>null</em> : x}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
-      </Draggable>
+            {showMenu && (
+              <div className="pvtCheckContainer">
+                {shown.map(x => (
+                  <p
+                    key={x}
+                    onClick={() => this.toggleValue(x)}
+                    className={x in this.props.valueFilter! ? '' : 'selected'}
+                  >
+                    <a className="pvtOnly" onClick={e => this.selectOnly(e, x)}>
+                      only
+                    </a>
+                    <a className="pvtOnlySpacer">&nbsp;</a>
+
+                    {x === '' ? <em>null</em> : x}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </Draggable>
+      ),
+      appRoot!,
     )
   }
 
-  public toggleFilterBox() {
-    this.setState({ open: !this.state.open })
+  public toggleFilterBox(event: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+    event.persist()
+    this.setState(prevState => ({
+      ...prevState,
+      open: !this.state.open,
+      x: event.clientX,
+      y: event.clientY,
+    }))
     this.props.moveFilterBoxToTop(this.props.name)
   }
 
@@ -172,7 +196,7 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
           {this.props.name}
           <span
             className="pvtTriangle"
-            onClick={() => this.toggleFilterBox()}
+            onClick={e => this.toggleFilterBox(e)}
           >
             {' '}
             ▾
