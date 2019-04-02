@@ -17,7 +17,8 @@
     "PlotlyRenderers.js.map",
     "TableRenderers.js.map",
     "Utilities.js.map",
-    "pivottable.css"
+    "pivottable.css",
+    "src/**/*"
   ],
   "scripts": {
     "start": "webpack-dev-server",
