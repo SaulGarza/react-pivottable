@@ -818,18 +818,15 @@ class PivotData {
 
   // can handle arrays or jQuery selections of tables
   public forEachRecord(input: inputData, derivedAttributes?: Object, f?: Function) {
-    if (!derivedAttributes) {
-      // tslint:disable-next-line:no-parameter-reassignment
-      derivedAttributes = {}
-    }
+    const attrs = derivedAttributes || {}
     let addRecord
     let record;
-    if (derivedAttributes && Object.getOwnPropertyNames(derivedAttributes).length === 0) {
+    if (attrs && Object.getOwnPropertyNames(attrs).length === 0) {
       addRecord = f;
     } else {
       addRecord = (newRecord) => {
-        for (const k of Object.keys(derivedAttributes!)) {
-          const derived = derivedAttributes![k](newRecord);
+        for (const k of Object.keys(attrs)) {
+          const derived = attrs[k](newRecord);
           if (derived !== null) {
             newRecord[k] = derived;
           }

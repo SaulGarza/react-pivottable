@@ -71,7 +71,6 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
     }
     const showMenu = Object.keys(this.props.attrValues).length < menuLimit!
     const values = Object.keys(this.props.attrValues)
-    console.log(this.props.sorter)
     const shown = values
       .filter(this.matchesFilter.bind(this))
       .sort(this.props.sorter)

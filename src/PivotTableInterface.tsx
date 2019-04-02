@@ -371,7 +371,7 @@ export default class PivotTableInterface extends React.PureComponent<IPivotTable
           {...update(this.props, {
             data: { $set: this.materializedInput },
           })}
-          ref={component => this.RenderedTable = component!.RenderedTable}
+          ref={component => this.RenderedTable = component ? component.RenderedTable : null}
         />
       </td>
     )

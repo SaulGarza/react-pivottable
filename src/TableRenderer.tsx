@@ -97,7 +97,6 @@ export function makeRenderer(opts: any = {}) {
       }
     }
     public activateDrilldown(data: Object[]) {
-      console.log('DRILLDOWN DATA:', data)
       this.setState((prevState) => {
         return {
           ...prevState,
