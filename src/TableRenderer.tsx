@@ -7,6 +7,9 @@ import {
 
 import * as XLSX from 'xlsx'
 
+import { Column, Table } from 'react-virtualized'
+import 'react-virtualized/styles.css'
+
 // helper function for setting row/col-span in pivotTableRenderer
 const spanSize = (arr, i, j) => {
   let x
@@ -74,6 +77,7 @@ interface IState {
 }
 export function makeRenderer(opts: any = {}) {
   class TableRenderer extends React.PureComponent<ITableRendererProps,IState> {
+    public drilldownRef: any
     public static defaultProps = {
       ...PivotDataDefaultProps,
       tableColorScaleGenerator: redColorScaleGenerator,
@@ -435,41 +439,40 @@ export function makeRenderer(opts: any = {}) {
           <div
             className={`pvt__drilldownContainer ${this.state.drilldownActive ? 'active' : ''}`}
             onClick={() => this.disableDrilldown()}
+            ref={ref => this.drilldownRef = ref}
           >
             {(() => {
               if(!this.state.drilldownData.length) {
                 return null
               }
               const drilldownKeys = Object.keys(this.state.drilldownData[0])
+              const columnWidth = 150
+              const width = drilldownKeys.length * columnWidth
+
+              const { offsetHeight } = this.drilldownRef || { offsetHeight: 500 }
               return (
                 <div className="pvt__tableWrapper">
                   <td className="pvtOutput">
-                    <table>
-                      <thead>
-                        <tr>
-                          {drilldownKeys.map((columnKeys, i) => {
-                            return (
-                              <th key={i}>{columnKeys}</th>
-                            )
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {this.state.drilldownData.map((row, i) => {
-                          return (
-                            <tr key={i}>
-                              {drilldownKeys.map((key, k) => {
-                                return (
-                                  <td key={k}>
-                                    {row[key]}
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+                    <Table
+                      width={width}
+                      height={offsetHeight}
+                      headerHeight={30}
+                      rowHeight={30}
+                      rowCount={this.state.drilldownData.length}
+                      rowGetter={({ index }) => this.state.drilldownData[index]}
+                    >
+                      {drilldownKeys.map((columnKeys, i) => {
+                        return (
+                          <Column
+                            key={i}
+                            label={columnKeys}
+                            dataKey={columnKeys}
+                            width={columnWidth}
+                            style={{ flexBasis: 'auto !important' }}
+                          />
+                        )
+                      })}
+                    </Table>
                   </td>
                 </div>
               )

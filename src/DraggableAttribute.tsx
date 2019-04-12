@@ -7,6 +7,10 @@ import {
 
 import * as ReactDOM from 'react-dom'
 
+import { List } from 'react-virtualized'
+
+import * as moment from 'moment'
+
 interface IProps {
   name: string
   attrValues: ObjectOfNumbers
@@ -14,7 +18,7 @@ interface IProps {
   sorter: ((a: string, b: string) => number) | undefined
   addValuesToFilter: (name: string, values: any[]) => any
   removeValuesFromFilter: (name: string, values: any[]) => any
-  setValuesInFilter?: (name: string, values: any) => any
+  setValuesInFilter: (name: string, values: any) => any
   valueFilter?: ObjectOfBooleans
   menuLimit?: number
   zIndex?: number
@@ -24,6 +28,7 @@ interface IState {
   filterText: string
   x: number
   y: number
+  isDates: boolean
 }
 export default class DraggableAttribute extends React.Component<IProps, IState> {
   public static defaultProps = {
@@ -34,9 +39,20 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
     filterText: '',
     x: 0,
     y: 0,
+    isDates: false,
   }
   constructor(props: IProps) {
     super(props)
+    let foundNonDate = false
+    for(const k in props.attrValues) {
+      if(moment(k).isValid()) {
+        continue
+      }
+      foundNonDate = true
+    }
+    if(!foundNonDate) {
+      this.state.isDates = true
+    }
   }
 
   public toggleValue(value: any) {
@@ -65,17 +81,35 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
   }
 
   public getFilterBox() {
-    let menuLimit = this.props.menuLimit
-    if(!this.props.menuLimit) {
-      menuLimit = 1
-    }
-    const showMenu = Object.keys(this.props.attrValues).length < menuLimit!
     const values = Object.keys(this.props.attrValues)
     const shown = values
       .filter(this.matchesFilter.bind(this))
       .sort(this.props.sorter)
 
     const appRoot = document.getElementById('root')
+
+    const rowRenderer = ({
+      key,
+      index,
+      isScrolling,
+      isVisible,
+      style,
+    }) => {
+      return (
+        <p
+          key={index}
+          onClick={() => this.toggleValue(shown[index])}
+          className={shown[index] in this.props.valueFilter! ? '' : 'selected'}
+        >
+          <a className="pvtOnly" onClick={e => this.selectOnly(e, shown[index])}>
+            only
+          </a>
+          <a className="pvtOnlySpacer">&nbsp;</a>
+          {shown[index] === '' ? <em>null</em> : shown[index]}
+        </p>
+      )
+    }
+
     return ReactDOM.createPortal(
       (
         <Draggable
@@ -100,72 +134,124 @@ export default class DraggableAttribute extends React.Component<IProps, IState> 
             </a>
             <span className="pvtDragHandle">☰</span>
             <h4>{this.props.name}</h4>
-
-            {showMenu || <p>(too many values to show)</p>}
-
-            {showMenu && (
-              <p>
-                <input
-                  type="text"
-                  placeholder="Filter values"
-                  className="pvtSearch"
-                  value={this.state.filterText}
-                  onChange={e =>
-                    this.setState({
-                      filterText: e.target.value,
-                    })
-                  }
-                />
-                <br />
-                <a
-                  role="button"
-                  className="pvtButton"
-                  onClick={() =>
-                    this.props.removeValuesFromFilter(
-                      this.props.name,
-                      Object.keys(this.props.attrValues).filter(
-                        this.matchesFilter.bind(this),
-                      ),
-                    )
-                  }
-                >
-                  Select {values.length === shown.length ? 'All' : shown.length}
-                </a>{' '}
-                <a
-                  role="button"
-                  className="pvtButton"
-                  onClick={() =>
-                    this.props.addValuesToFilter(
-                      this.props.name,
-                      Object.keys(this.props.attrValues).filter(
-                        this.matchesFilter.bind(this),
-                      ),
-                    )
-                  }
-                >
-                  Deselect {values.length === shown.length ? 'All' : shown.length}
-                </a>
-              </p>
-            )}
-
-            {showMenu && (
-              <div className="pvtCheckContainer">
-                {shown.map(x => (
-                  <p
-                    key={x}
-                    onClick={() => this.toggleValue(x)}
-                    className={x in this.props.valueFilter! ? '' : 'selected'}
+              {!this.state.isDates && (
+                <p>
+                  <input
+                    type="text"
+                    placeholder="Filter values"
+                    className="pvtSearch"
+                    value={this.state.filterText}
+                    onChange={e =>
+                      this.setState({
+                        filterText: e.target.value,
+                      })
+                    }
+                  />
+                  <br />
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.removeValuesFromFilter(
+                        this.props.name,
+                        Object.keys(this.props.attrValues).filter(
+                          this.matchesFilter.bind(this),
+                        ),
+                      )
+                    }
                   >
-                    <a className="pvtOnly" onClick={e => this.selectOnly(e, x)}>
-                      only
-                    </a>
-                    <a className="pvtOnlySpacer">&nbsp;</a>
-
-                    {x === '' ? <em>null</em> : x}
-                  </p>
-                ))}
-              </div>
-            )}
+                    Select {values.length === shown.length ? 'All' : shown.length}
+                  </a>{' '}
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.addValuesToFilter(
+                        this.props.name,
+                        Object.keys(this.props.attrValues).filter(
+                          this.matchesFilter.bind(this),
+                        ),
+                      )
+                    }
+                  >
+                    Deselect {values.length === shown.length ? 'All' : shown.length}
+                  </a>
+                </p>
+              ) || (
+                <p>
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.setValuesInFilter(
+                        this.props.name,
+                        ['date'],
+                      )
+                    }
+                  >
+                   Day
+                  </a>
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.setValuesInFilter(
+                        this.props.name,
+                        ['week'],
+                      )
+                    }
+                  >
+                   Week
+                  </a>
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.setValuesInFilter(
+                        this.props.name,
+                        ['month'],
+                      )
+                    }
+                  >
+                   Month
+                  </a>
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.setValuesInFilter(
+                        this.props.name,
+                        ['quarter'],
+                      )
+                    }
+                  >
+                   Quarter
+                  </a>
+                  <a
+                    role="button"
+                    className="pvtButton"
+                    onClick={() =>
+                      this.props.setValuesInFilter(
+                        this.props.name,
+                        ['year'],
+                      )
+                    }
+                  >
+                   Year
+                  </a>
+                </p>
+              )}
+              {!this.state.isDates && (
+                <div className="pvtCheckContainer">
+                  <List
+                    width={298}
+                    height={244}
+                    rowCount={shown.length}
+                    rowHeight={22}
+                    rowRenderer={rowRenderer}
+                  />
+                </div>
+              )}
           </div>
         </Draggable>
       ),

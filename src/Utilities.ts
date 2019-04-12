@@ -9,6 +9,11 @@
  * DS207: Consider shorter variations of null checks
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
  */
+import * as moment from 'moment'
+// tslint:disable-next-line:no-duplicate-imports
+import { Moment } from 'moment'
+
+import * as _ from 'lodash'
 
 const addSeparators = (nStr: any, thousandsSep, decimalSep) => {
   const x = String(nStr).split('.');
@@ -93,6 +98,25 @@ const naturalSort = (as, bs) => {
     return 1;
   }
 
+  // Create Dates if possible
+  const aMoment = createSortingMoment(as)
+  const bMoment = createSortingMoment(bs)
+
+  // Non Dates Take Priority
+  if(!aMoment[1] && bMoment[1]) {
+    return 1
+  }
+  if(aMoment[1] && !bMoment[1]) {
+    return -1
+  }
+
+  // Compare Dates and return sorted moments
+  if(aMoment[1] && bMoment[1]) {
+    const aMomentInstance = aMoment[0] as Moment
+    const bMomentInstance = bMoment[0] as Moment
+    return Number(aMomentInstance.format('YYYYMMDD')) - Number(bMomentInstance.format('YYYYMMDD'))
+  }
+
   // finally, "smart" string sorting per http://stackoverflow.com/a/4373421/112871
   const a = String(as);
   const b = String(bs);
@@ -119,6 +143,30 @@ const naturalSort = (as, bs) => {
   }
   return a.length - b.length;
 };
+
+const createSortingMoment = (str) => {
+  const dayMoment = moment(str,'MM/DD/YYYY')
+  if(dayMoment.isValid()) {
+    return [dayMoment, 'day']
+  }
+  const weekMoment = moment(str,'MM/DD - MM/DD YYYY')
+  if(weekMoment.isValid()) {
+    return [weekMoment, 'week']
+  }
+  const monthMoment = moment(str, 'MMM YYYY')
+  if(monthMoment.isValid()) {
+    return [monthMoment, 'month']
+  }
+  const quarterMoment = moment(str, 'Q YYYY')
+  if(quarterMoment.isValid()) {
+    return [quarterMoment, 'quarter']
+  }
+  const yearMoment = moment(str, 'YYYY')
+  if(yearMoment.isValid()) {
+    return [yearMoment, 'year']
+  }
+  return [null, null]
+}
 
 const sortAs = (order) => {
   const mapping = {};
@@ -597,6 +645,9 @@ export enum OrderEnum {
 //   "": {}
 // }
 
+export const MomentFilters =
+  /(MomentDate)-(.*)|(MomentWeek)-(.*)|(MomentMonth)-(.*)|(MomentYear)-(.*)/g
+
 export interface IPivotDataProps {
   data: inputData
   aggregators: ObjectOfFunctions
@@ -634,6 +685,7 @@ class PivotData {
   private allTotal: any
   private sorted: boolean
   public props: IPivotDataProps
+  private parsedData: any
   constructor(inputProps: { data: inputData } & any = {}) {
     this.props = Object.assign({}, this.defaultProps, inputProps)
     this.aggregator = this.props.aggregators![this.props.aggregatorName!](
@@ -647,9 +699,45 @@ class PivotData {
     this.allTotal = this.aggregator(this, [], []);
     this.sorted = false;
 
+    console.log(this.parsedData, this.props.data)
+
+    if(!this.parsedData && this.props.data instanceof Array) {
+      this.parsedData = _.cloneDeep(this.props.data)
+    }
+    console.log(this.parsedData, this.props.data)
+    if(this.parsedData instanceof Array) {
+      // Iterate Through Array Objects
+      for(let i = this.parsedData.length; i--;) {
+        const record = this.parsedData[i]
+        // Iterate Through Object Keys
+        for(const k in record) {
+          if(k) {
+            const momentRecord = moment(record[k])
+            if(momentRecord.isValid()) {
+              if(this.props.valueFilter[k]) {
+                let parsedRecord = momentRecord.format('L')
+                if(this.props.valueFilter[k].week) {
+                  const monday = moment(momentRecord).startOf('isoWeek').format('MM/DD')
+                  const sunday = moment(momentRecord).endOf('isoWeek').format('MM/DD')
+                  parsedRecord = `${monday} - ${sunday} ${momentRecord.format('YYYY')}`
+                } else if(this.props.valueFilter[k].month) {
+                  parsedRecord = momentRecord.format('MMM YYYY')
+                } else if(this.props.valueFilter[k].year) {
+                  parsedRecord = momentRecord.format('YYYY')
+                } else if(this.props.valueFilter[k].quarter) {
+                  parsedRecord = `Q${momentRecord.format('Q YYYY')}`
+                }
+                this.parsedData[i][k] = parsedRecord
+              }
+            }
+          }
+        }
+      }
+    }
+
     // iterate through input, accumulating data for cells
     this.forEachRecord(
-      this.props.data!,
+      this.parsedData,
       this.props.derivedAttributes,
       (record) => {
         if (this.filter(record)) {
@@ -670,7 +758,7 @@ class PivotData {
 
   public forEachMatchingRecord(criteria, callback) {
     return this.forEachRecord(
-      this.props.data!,
+      this.parsedData!,
       this.props.derivedAttributes,
       (record) => {
         if (!this.filter(record)) {
