@@ -7,6 +7,10 @@ import {
 
 import * as XLSX from 'xlsx'
 
+import worker from './worker'
+
+import WebWorker from './workerSetup'
+
 import { Column, Table } from 'react-virtualized'
 import 'react-virtualized/styles.css'
 
@@ -74,9 +78,11 @@ interface ITableRendererProps extends IPivotDataProps {
 interface IState {
   drilldownData: Object[]
   drilldownActive: boolean
+  pivotData: any,
 }
 export function makeRenderer(opts: any = {}) {
   class TableRenderer extends React.PureComponent<ITableRendererProps,IState> {
+    public worker: any
     public drilldownRef: any
     public static defaultProps = {
       ...PivotDataDefaultProps,
@@ -86,6 +92,7 @@ export function makeRenderer(opts: any = {}) {
     public state: IState = {
       drilldownData: [],
       drilldownActive: false,
+      pivotData: null,
     }
     constructor(props: ITableRendererProps) {
       super(props)
@@ -100,6 +107,30 @@ export function makeRenderer(opts: any = {}) {
         this.activateDrilldown(records)
       }
     }
+
+    public componentDidMount() {
+      // Setup worker to process pivot data
+      this.worker = new WebWorker(worker)
+      this.worker.addEventListener(
+        'message',
+        (event: any) => {
+          this.setState(prevState => ({
+            ...prevState,
+            pivotData: event.data
+          }))
+        }
+      )
+      this.runWorker()
+    }
+
+    public shouldComponentUpdate(nextProps: ITableRendererProps, nextState: IState) {
+      if(nextProps != this.props) {
+        this.runWorker(nextProps)
+        return false
+      }
+      return true
+    }
+
     public activateDrilldown(data: Object[]) {
       this.setState((prevState) => {
         return {
@@ -202,13 +233,29 @@ export function makeRenderer(opts: any = {}) {
       }
     }
 
+    public runWorker(customProps?: ITableRendererProps) {
+      this.worker.postMessage(customProps || this.props,'*')
+    }
+
     public render() {
-      const pivotData = new PivotData(this.props)
-      const colAttrs = pivotData.props.cols
-      const rowAttrs = pivotData.props.rows
-      const rowKeys = pivotData.getRowKeys()
-      const colKeys = pivotData.getColKeys()
-      const grandTotalAggregator = pivotData.getAggregator([], [])
+      // const pivotData = new PivotData(this.props)
+      // const colAttrs = pivotData.props.cols
+      // const rowAttrs = pivotData.props.rows
+      // const rowKeys = pivotData.getRowKeys()
+      // const colKeys = pivotData.getColKeys()
+      // const grandTotalAggregator = pivotData.getAggregator([], [])
+
+      if(!!this.state.pivotData) {
+        return (<></>)
+      }
+      const {
+        pivotData,
+        colAttrs,
+        rowAttrs,
+        rowKeys,
+        colKeys,
+        grandTotalAggregator,
+      } = this.state.pivotData
 
       let valueCellColors: ((r: any, c: any, v: any) => React.CSSProperties | undefined) | undefined
       let rowTotalColors: ColorScaleGeneratorReturn | undefined
